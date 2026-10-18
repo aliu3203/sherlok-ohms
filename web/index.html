@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sherlok Ohms</title>
+<style>
+  :root { --bg:#f6f6f4; --card:#fff; --fg:#1d1d1b; --muted:#6b6b66; --line:#ddddd8; --accent:#2f5bd3;
+          --green:#1f9d55; --yellow:#c99a06; --red:#d23c3c; --con:#14161a; --con-fg:#d6d9de; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#121314; --card:#1b1c1e; --fg:#e8e8e6; --muted:#9a9a94; --line:#2c2d30; --accent:#7c9cff; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, -apple-system, sans-serif; }
+  main { max-width:960px; margin:0 auto; padding:24px 16px; display:grid; gap:16px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  h1 { margin:0; font-size:20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; display:grid; gap:12px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  label { color:var(--muted); font-size:13px; }
+  input[type=text], select { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px;
+          background:var(--bg); color:var(--fg); min-width:0; }
+  input[type=text] { flex:1 1 220px; }
+  select { flex:1 1 220px; }
+  button { font:inherit; padding:6px 14px; border-radius:6px; border:1px solid var(--line); background:var(--bg);
+          color:var(--fg); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  pre.schema { margin:0; padding:10px; background:var(--bg); border-radius:6px; max-height:160px; overflow:auto;
+          font:12px/1.4 ui-monospace, Menlo, monospace; white-space:pre-wrap; }
+  .pill { display:inline-flex; align-items:center; gap:8px; padding:4px 12px; border-radius:999px;
+          border:1px solid var(--line); font-weight:600; text-transform:uppercase; font-size:13px; }
+  .dot { width:12px; height:12px; border-radius:50%; background:var(--muted); }
+  .pill.green .dot { background:var(--green); } .pill.yellow .dot { background:var(--yellow); }
+  .pill.red .dot { background:var(--red); }
+  #console { margin:0; height:420px; overflow:auto; padding:12px; background:var(--con); color:var(--con-fg);
+          border-radius:8px; font:12.5px/1.5 ui-monospace, Menlo, monospace; white-space:pre-wrap; word-break:break-word; }
+  #console .green { color:#5fd38d; } #console .yellow { color:#f0c75e; } #console .red { color:#ff7b7b; }
+  #console .sys { color:#8b93a1; }
+  .muted { color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Sherlok Ohms</h1>
+    <span id="pill" class="pill"><span class="dot"></span><span id="pillText">idle</span></span>
+  </header>
+
+  <section class="card">
+    <div class="row">
+      <label for="pi">Pi address</label>
+      <input id="pi" type="text" placeholder="http://192.168.1.50:8000">
+      <button id="connect">Connect</button>
+    </div>
+    <div id="conn" class="muted">not connected</div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <label for="file">Upload schema</label>
+      <input id="file" type="file" accept=".txt,.json">
+      <span class="muted">or</span>
+      <select id="existing"><option value="">pick one on the Pi…</option></select>
+    </div>
+    <pre id="preview" class="schema" hidden></pre>
+    <div class="row">
+      <button id="start" class="primary" disabled>Start check</button>
+      <button id="stop" disabled>Stop</button>
+      <span id="msg" class="muted"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row" style="justify-content:space-between">
+      <strong>Console</strong>
+      <div class="row">
+        <label><input id="follow" type="checkbox" checked> auto-scroll</label>
+        <button id="clear">Clear</button>
+      </div>
+    </div>
+    <pre id="console"></pre>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let base = "", es = null, upload = null;   // upload = {name, text} from the file picker
+
+function store(k, v) { try { v === undefined ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} }
+function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
+
+$("pi").value = load("pi") || (location.protocol.startsWith("http") ? location.origin : "");
+
+function setPill(state) {
+  $("pill").className = "pill " + (state || "");
+  $("pillText").textContent = state || "idle";
+}
+
+function setRunning(running, schema) {
+  $("stop").disabled = !running;
+  $("msg").textContent = running ? `running ${schema}` : (schema ? `stopped (${schema})` : "");
+  if (!running) setPill("");
+  updateStart();
+}
+
+function updateStart() { $("start").disabled = !base || !(upload || $("existing").value); }
+
+function addLine(text) {
+  const el = document.createElement("div");
+  const m = text.match(/^\[(green|yellow|red)\s*\]/);
+  const led = text.match(/^\[lights\] (GREEN|YELLOW|RED)$/);   // printed by Lights.show on every LED change
+  if (m) el.className = m[1];
+  else if (led) { el.className = led[1].toLowerCase(); setPill(el.className); }
+  else if (text.startsWith("$ ") || text.startsWith("[exited")) el.className = "sys";
+  el.textContent = text;
+  const c = $("console");
+  c.appendChild(el);
+  while (c.childElementCount > 3000) c.firstChild.remove();
+  if ($("follow").checked) c.scrollTop = c.scrollHeight;
+  if (text.startsWith("[exited")) setRunning(false, null);
+}
+
+async function api(path, body) {
+  const r = await fetch(base + path, body === undefined ? {} :
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+async function connect() {
+  base = $("pi").value.trim().replace(/\/+$/, "");
+  if (base && !/^https?:\/\//.test(base)) base = "http://" + base;
+  if (es) es.close();
+  try {
+    const [schemas, status] = await Promise.all([api("/schemas"), api("/status")]);
+    store("pi", base);
+    $("existing").replaceChildren(new Option("pick one on the Pi…", ""), ...schemas.map(s => new Option(s, s)));
+    $("conn").textContent = `connected to ${base}`;
+    setRunning(status.running, status.schema);
+    $("console").innerHTML = "";
+    es = new EventSource(base + "/logs");
+    es.onmessage = e => addLine(e.data);
+    es.onerror = () => $("conn").textContent = `lost connection to ${base}, retrying…`;
+    es.onopen = () => $("conn").textContent = `connected to ${base}`;
+  } catch (e) {
+    base = "";
+    $("conn").textContent = `can't reach the Pi: ${e.message}`;
+  }
+  updateStart();
+}
+
+$("connect").onclick = connect;
+$("pi").onkeydown = e => { if (e.key === "Enter") connect(); };
+
+$("file").onchange = async () => {
+  const f = $("file").files[0];
+  upload = f ? { name: f.name, text: await f.text() } : null;
+  if (upload) $("existing").value = "";
+  $("preview").hidden = !upload;
+  $("preview").textContent = upload ? upload.text : "";
+  updateStart();
+};
+
+$("existing").onchange = () => {
+  if ($("existing").value) { upload = null; $("file").value = ""; $("preview").hidden = true; }
+  updateStart();
+};
+
+$("start").onclick = async () => {
+  $("start").disabled = true;
+  try {
+    const r = await api("/run", upload || { schema: $("existing").value });
+    setRunning(true, r.schema);
+  } catch (e) { $("msg").textContent = `error: ${e.message}`; updateStart(); }
+};
+
+$("stop").onclick = async () => {
+  $("stop").disabled = true;
+  try { const r = await api("/stop", {}); setRunning(false, r.schema); }
+  catch (e) { $("msg").textContent = `error: ${e.message}`; }
+};
+
+$("clear").onclick = () => $("console").innerHTML = "";
+
+if ($("pi").value) connect();
+</script>
+</body>
+</html>
