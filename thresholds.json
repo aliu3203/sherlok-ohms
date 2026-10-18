@@ -1,10 +1,10 @@
 {
   "vision": {
-    "px_thresh": 18.0,
-    "hole_thresh": 14.0,
+    "px_thresh": 30.0,
+    "hole_thresh": 22.0,
     "l_weight": 0.5,
-    "min_area_pitch2": 0.6,
-    "obstructed_frac": 0.25,
+    "min_area_pitch2": 2.0,
+    "obstructed_frac": 0.4,
     "hole_radius": 0.25,
     "assign_pitch": 1.5
   },

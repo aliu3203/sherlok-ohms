@@ -103,6 +103,8 @@ class Checker:
         for i, nodes, conf in det:
             if i in used:
                 continue
+            if conf < self.high:  # low-confidence blobs (noise, shadows, unsure ends): don't report
+                continue
             res.extra.append(i)
             what = "short (both ends in one strip)" if len(nodes) == 1 else "unexpected connection"
             sev = "error" if conf >= self.high else "warn"
