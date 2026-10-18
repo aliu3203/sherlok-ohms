@@ -1,0 +1,6 @@
+# Demo shape moved to the far left (columns 50-58)
+# tp44 = 9th group of 5 (counting from the column-1 end), 4th hole; tn49 = 10th group, 4th hole
+W1   wire      tp44  a50
+R1   resistor  c50   c54
+R2   resistor  d54   d58
+W2   wire      a58   tn49

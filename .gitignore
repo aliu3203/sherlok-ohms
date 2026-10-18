@@ -1,0 +1,6 @@
+__pycache__/
+debug/
+fake/
+captures/
+*.npz
+cam.tgz

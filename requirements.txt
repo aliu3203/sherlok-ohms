@@ -1,0 +1,5 @@
+# Pi (QNX ports, apk add): python3 py3-numpy opencv. Laptop: pip install -r requirements.txt
+numpy
+opencv-python==4.12.*  # same OpenCV as the QNX port
+pillow                 # tools/make_markers.py only (PDF output)
+pytest

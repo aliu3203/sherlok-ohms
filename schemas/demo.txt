@@ -1,0 +1,6 @@
+# Demo circuit (right side of board). + rail -> R1 -> R2 -> - rail
+# Rail holes count in groups of 5 starting at the column-1 end: tp2 = 1st group, 2nd hole; tn9 = 2nd group, 4th hole
+W1   wire      tp2   a4
+R1   resistor  c4    c8
+R2   resistor  d8    d12
+W2   wire      a12   tn9

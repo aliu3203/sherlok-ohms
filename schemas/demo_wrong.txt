@@ -1,0 +1,5 @@
+# Same as demo but R2 is one column off (d13 instead of d12) - the "red" demo
+W1   wire      tp2   a4
+R1   resistor  c4    c8
+R2   resistor  d8    d13
+W2   wire      a12   tn9

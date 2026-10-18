@@ -1,0 +1,6 @@
+# Bottom half (rows f-j) + bottom rails. bp3 = 1st group, 3rd hole; bn22 = 5th group, 2nd hole
+W1   wire      bp3   j18
+R1   resistor  h18   h22
+R2   resistor  g22   g26
+R3   resistor  f30   f34
+W2   wire      j26   bn22

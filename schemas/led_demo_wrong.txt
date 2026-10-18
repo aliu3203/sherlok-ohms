@@ -1,0 +1,5 @@
+# same circuit, resistor one column off (useful as a "wrong" build for training + demo)
+W1   wire      tp3   a5
+R1   resistor  c5    c10
+D1   led       e9    e11
+W2   wire      a11   tn8

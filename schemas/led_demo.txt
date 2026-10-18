@@ -1,0 +1,5 @@
+# ID  TYPE      PIN   PIN        (holes: a1..j30, rails tp/tn = + and - next to row a)
+W1   wire      tp3   a5
+R1   resistor  c5    c9
+D1   led       e9    e11
+W2   wire      a11   tn8
