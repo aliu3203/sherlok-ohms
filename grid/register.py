@@ -75,12 +75,19 @@ def detect_markers(image):
 
 
 def warp_transform(spec):
-    """(H_mm_to_warp, (width, height)) for the fixed top-down board image."""
+    """(H_mm_to_warp, (width, height)) for the fixed top-down board image.
+
+    The warp shows the board as seen from above with column 1 on the left, so
+    when row a is at the bottom it is flipped vertically relative to the a1 frame.
+    """
     xy = np.array(list(hole_positions_mm(spec).values()))
     x0, y0 = xy.min(axis=0) - WARP_MARGIN_MM
     x1, y1 = xy.max(axis=0) + WARP_MARGIN_MM
     s = PX_PER_MM
-    H = np.array([[s, 0, -s * x0], [0, s, -s * y0], [0, 0, 1]], dtype=float)
+    if spec.row_a_at_bottom:
+        H = np.array([[s, 0, -s * x0], [0, -s, s * y1], [0, 0, 1]], dtype=float)
+    else:
+        H = np.array([[s, 0, -s * x0], [0, s, -s * y0], [0, 0, 1]], dtype=float)
     return H, (int(np.ceil((x1 - x0) * s)) + 1, int(np.ceil((y1 - y0) * s)) + 1)
 
 
@@ -144,9 +151,11 @@ def grid_from_markers(spec, centers):
     for quad in (src, dst):
         if not cv2.isContourConvex(quad) or abs(cv2.contourArea(quad)) < 1e-3:
             raise ValueError('Markers must form a convex, nondegenerate quadrilateral')
-    # Any camera rotation preserves winding order; a flip means IDs are misplaced.
-    if np.sign(cv2.contourArea(src, oriented=True)) != np.sign(cv2.contourArea(dst, oriented=True)):
-        raise ValueError('Marker order is mirrored; check that IDs 0-3 run clockwise from top-left')
+    # Camera rotation preserves winding order, so the only expected flip is the
+    # board frame's own handedness; any other flip means IDs are misplaced.
+    flip = -1 if spec.row_a_at_bottom else 1
+    if np.sign(cv2.contourArea(src, oriented=True)) * flip != np.sign(cv2.contourArea(dst, oriented=True)):
+        raise ValueError('Marker order is mirrored; check marker_centers_mm and row_a_at_bottom')
     H = cv2.getPerspectiveTransform(src, dst).astype(float)
     if not np.isfinite(H).all() or abs(np.linalg.det(H)) < 1e-12:
         raise ValueError('Degenerate homography')

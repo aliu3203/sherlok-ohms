@@ -10,17 +10,14 @@ CASES = [(spec, angle, seed) for spec in (FULL_830, HALF_400)
 
 @pytest.mark.parametrize('spec, angle, seed', CASES)
 def test_every_hole_lands_on_truth(spec, angle, seed):
-    px_per_mm = 10 if spec is FULL_830 else 18  # half board lets the camera sit closer
-    if abs(angle) == 90:
-        px_per_mm *= .6  # board across the short image axis
-    H = camera_homography(spec, px_per_mm=px_per_mm, angle_deg=angle, seed=seed)
+    H = camera_homography(spec, angle_deg=angle, seed=seed)
     grid = GridRegistrar(spec).update(render(spec, H, seed=seed))
     assert grid is not None and not grid.stale
     truth = truth_xy(spec, H)
     error = np.linalg.norm(grid.xy_image - truth, axis=1)
     assert error.max() < .1 * grid.px_per_pitch, error.max()
     # Labels follow the marker IDs, so rotating the camera never relabels holes.
-    for name in ('a1', f'j{spec.columns}', 'top_minus_1', 'bottom_minus_1'):
+    for name in ('a1', f'j{spec.columns}', 'a_minus_1', 'j_minus_1'):
         assert grid.nearest(*truth[grid.index[name]]).hole == name
 
 
@@ -32,7 +29,7 @@ def test_nearest_refuses_far_and_ambiguous_points():
     step = np.subtract(a2, a1)
     assert grid.nearest(*(a1 + .39 * step)).reason == 'ambiguous_neighbor'
     assert grid.nearest(*(a1 + .5 * step)).reason == 'too_far_from_hole'
-    far = np.array(a1) + [0, -1.3 * grid.px_per_pitch]  # into the gap above row a
+    far = np.add(a1, 1.3 * np.subtract(a1, grid.image_xy('b1')))  # into the gap beyond row a
     assert grid.nearest(*far).hole is None
 
 

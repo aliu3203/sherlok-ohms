@@ -27,7 +27,7 @@ WARP_MARGIN_MM = 5.0   # extra border around the outermost holes in the warp
 class BoardSpec:
     name: str
     columns: int
-    rail_rows: dict          # rail name -> y offset in pitches from row a (negative = above a)
+    rail_rows: dict          # rail name -> y offset in pitches from row a (negative = beyond row a)
     rail_first_x_pitches: float  # x of each rail's first hole, in pitches from column 1
     rail_holes_per_row: int
     marker_centers_mm: dict  # marker id -> (x, y) in the board frame
@@ -38,6 +38,9 @@ class BoardSpec:
     rail_group: int = 5      # rail holes come in groups of 5 ...
     rail_gap_pitches: int = 1  # ... separated by one missing hole
     rail_split: bool = False   # True if each rail is cut electrically in the middle
+    # Seen from above with column 1 on the left, is row a the bottom row (most
+    # boards)? Then the a1 frame is a mirror image of the camera's view.
+    row_a_at_bottom: bool = True
 
     @property
     def terminal_width_mm(self):
@@ -49,26 +52,30 @@ class BoardSpec:
 
 
 # 830-point board: 63 columns, 4 rails of 50 holes (10 groups of 5).
+# Fitted to tests/data/image.png (464 holes, 1.9 px rms). The snap-on rail strips
+# don't sit on whole pitches. Those markers lie on the table ~9.5 mm below the
+# board top, so marker_centers_mm absorbs that photo's parallax: valid for that
+# camera pose only. Re-fit once the markers are at board height or the Pi mount is set.
 FULL_830 = BoardSpec(
     name='full',
     columns=63,
-    rail_rows={'top_minus': -3, 'top_plus': -2, 'bottom_plus': 13, 'bottom_minus': 14},  # MEASURE
-    rail_first_x_pitches=2,  # MEASURE (rail span 58 pitches, centered on 62)
+    rail_rows={'a_plus': -4.01, 'a_minus': -3.0, 'j_plus': 13.76, 'j_minus': 14.78},
+    rail_first_x_pitches=2.0,  # rail span 58 pitches, centered on 62
     rail_holes_per_row=50,
-    marker_centers_mm={0: (0.0, -7.0), 1: (157.48, -7.0),  # MEASURE
-                       2: (157.48, 34.94), 3: (0.0, 34.94)},
-    marker_size_mm=8.0,
+    marker_centers_mm={0: (180.43, -33.56), 1: (-22.64, -33.73),  # MEASURE (see above)
+                       2: (-25.94, 59.45), 3: (182.36, 59.05)},
+    marker_size_mm=30.0,
 )
 
 # 400-point board: 30 columns, 4 rails of 25 holes (5 groups of 5).
 HALF_400 = BoardSpec(
     name='half',
     columns=30,
-    rail_rows={'top_minus': -3, 'top_plus': -2, 'bottom_plus': 13, 'bottom_minus': 14},  # MEASURE
+    rail_rows={'a_minus': -3, 'a_plus': -2, 'j_plus': 13, 'j_minus': 14},  # MEASURE
     rail_first_x_pitches=0.5,  # MEASURE (rail span 28 pitches, centered on 29)
     rail_holes_per_row=25,
-    marker_centers_mm={0: (-1.0, -7.0), 1: (74.66, -7.0),  # MEASURE
-                       2: (74.66, 34.94), 3: (-1.0, 34.94)},
+    marker_centers_mm={0: (-1.0, 34.94), 1: (74.66, 34.94),  # MEASURE
+                       2: (74.66, -7.0), 3: (-1.0, -7.0)},
     marker_size_mm=8.0,
 )
 

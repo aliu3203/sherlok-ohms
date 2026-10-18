@@ -3,7 +3,7 @@ import re
 
 
 def hole_positions_mm(spec):
-    """Ordered {name: (x_mm, y_mm)}: terminals a1..j{N}, then rails top_minus_1, ..."""
+    """Ordered {name: (x_mm, y_mm)}: terminals a1..j{N}, then rails a_minus_1, ..."""
     p = spec.pitch_mm
     half = len(spec.rows) // 2
     holes = {}
@@ -19,11 +19,12 @@ def hole_positions_mm(spec):
 
 
 def node_of(spec, hole):
-    """Electrical node: 'left:5' (a5-e5), 'right:5' (f5-j5), or 'rail:top_plus' ('...:1'/'...:2' if split)."""
+    """Electrical node: 'ae:5' (a5-e5), 'fj:5' (f5-j5), or 'rail:a_plus' (rail beside row a; '...:1'/'...:2' if split)."""
     m = re.fullmatch(rf'([{spec.rows}])(\d+)', hole)
     if m and 1 <= int(m[2]) <= spec.columns:
-        side = 'left' if spec.rows.index(m[1]) < len(spec.rows) // 2 else 'right'
-        return f'{side}:{m[2]}'
+        half = len(spec.rows) // 2
+        side = spec.rows[:half] if spec.rows.index(m[1]) < half else spec.rows[half:]
+        return f'{side[0]}{side[-1]}:{m[2]}'
     rail, _, index = hole.rpartition('_')
     if rail in spec.rail_rows and index.isdigit() and 1 <= int(index) <= spec.rail_holes_per_row:
         if spec.rail_split:

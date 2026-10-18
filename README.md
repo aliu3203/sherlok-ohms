@@ -19,10 +19,11 @@ grid.stale                         # True: markers hidden this frame, last good 
 
 ### Setup
 1. `python -m tools.make_markers`: print `out/markers.pdf` at 100% and check the 50 mm bar.
-2. Stick IDs 0-3 clockwise from the corner nearest a1. Keep the white border.
+2. Place IDs 0-3 clockwise as the camera sees them, starting top-left. Keep the white border.
 3. Measure each marker's center (middle of the black square) relative to hole a1's center
    (+x toward the last column, +y toward row j). Measure the rail offsets too, then fill in the
-   `# MEASURE` values in `grid/spec.py`.
+   `# MEASURE` values in `grid/spec.py`. Set `row_a_at_bottom=False` if, with column 1 on
+   your left, row a is the *top* row.
 4. `python -m tools.overlay photo.png [--board half]`: rings should sit on the holes, and px/pitch should be ≥ 20.
 
 On the Pi (QNX): `apk add` opencv and numpy, copy `qnx_camera_helper.py` from

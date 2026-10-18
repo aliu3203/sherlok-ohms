@@ -1,5 +1,6 @@
-.venv/
 __pycache__/
-.pytest_cache/
-out/
-qnx_camera_helper.py
+debug/
+fake/
+captures/
+*.npz
+cam.tgz

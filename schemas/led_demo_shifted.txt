@@ -1,0 +1,5 @@
+# same circuit moved 8 columns right (different holes = more training variety)
+W1   wire      tp5   a13
+R1   resistor  c13   c17
+D1   led       e17   e19
+W2   wire      a19   tn13

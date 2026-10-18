@@ -1,56 +1,28 @@
-# sherlok-ohms — project context
+# sherlok-ohms: project context
 
-Hackathon project ("Best Use of QNX"). A Raspberry Pi running **QNX OS** watches a breadboard with a camera and checks that the circuit being built matches a provided schema. If it doesn't, it signals an error (GPIO LED/buzzer).
+Hackathon project ("Best Use of QNX"). A Raspberry Pi running **QNX OS** watches a breadboard with a camera and checks that the circuit matches a schema. GPIO LEDs: green = OK, yellow = can't verify, red = wrong. **RUNBOOK.md is the operational guide; keep it in sync with the code.**
 
-Hard contest rules: (1) the product must run QNX OS; (2) it must include an open-source AI module listed at oss.qnx.com.
+Contest rules: (1) the product must run QNX OS; (2) it must include an open-source AI module listed at oss.qnx.com. We use **tflite-runtime**, plus optionally **mediapipe** for hands.
 
-## Platform facts (verified 2026-10-18)
-- The Pi does NOT run QNX by default. Flash the QNX 8.0 Quick Start Target Image: free QNX Everywhere license → QNX Software Center → `com.qnx.qnx800.quickstart.rpi5` (or `.rpi4`) → write the `.img` to a microSD of 32 GB or more.
-- Target: **Raspberry Pi 5 + Camera Module 3 on DISP0, QNX 8.0.5 image**. Camera = unit 3 (`/dev/sensor/camera3`, config `/etc/config/sensor/sensor_rpi5.conf`).
-- Camera from Python: `qnx_camera_helper.py` (`QnxCamera(unit=3).open(); rgb, info = cam.read()`) from the QNX codelab "mediapipe-camera-python" (github.com/qnx/codelabs). It wraps `libcamapi.so.1` via ctypes and outputs RGB numpy frames (2304×1296 NV12 stream). `cv2.VideoCapture(0)` does NOT work on QNX.
-- AI/vision packages in QNX ports (github.com/qnx-ports/aports, `extra/`), installed with `apk add`: tflite-runtime 2.21 (+python3-tflite-runtime), onnxruntime 1.24.4, ncnn, mediapipe 0.10.26, opencv 4.12 (+contrib, so cv2.aruco is available), numpy, pillow, scipy, llama.cpp. Python 3.14.
-- TFLite on a Pi 5 under QNX: SSD MobileNet ≈ 38 ms/frame with `num_threads=4`. The chosen inference runtime is **tflite-runtime**, with onnxruntime as backup.
-- GPIO: `import rpi_gpio as GPIO; GPIO.setmode(GPIO.BCM); GPIO.setup(pin, GPIO.OUT); GPIO.output(pin, GPIO.HIGH)`.
-- Train models on a laptop or Colab, then copy the `.tflite` files to the Pi.
+## Platform facts (verified)
+- Pi 5 + Camera Module 3 on DISP0, QNX 8.0.5 Quick Start image. Camera = unit 3 (`/dev/sensor/camera3`).
+- Camera from Python: `qnx_camera_helper.py` (QNX codelab `mediapipe-camera-python`, downloaded into the repo root, not committed). `cv2.VideoCapture` does NOT work on QNX.
+- apk packages: tflite-runtime 2.21 + python3-tflite-runtime, opencv 4.12 + python3-opencv, python3-numpy, mediapipe 0.10.26, onnxruntime. Python 3.14.
+- GPIO: `rpi_gpio` module (BCM 17 / 27 / 22 = green / yellow / red).
 
-## Architecture (decided)
-Core principle: **geometry decides *where*; ML answers yes/no questions at known locations; code combines the evidence.** No model ever has to regress an exact hole from a downscaled image. YOLO at 640 px input gives ≈ 8 px per 2.54 mm hole, which is too coarse; at full resolution it's ≈ 28 px per hole.
+## Design (as built)
+- **Geometry decides where:** 4 clicked corner holes (+ rail ends) → homography → canonical top-down board, 24 px pitch, ~400 hole centers (`sherlok/board.py`). Nodes: a–e of column N = `A{N}`, f–j = `B{N}`, rails = `R:{name}`.
+- **Hole model (AI):** a TFLite CNN on 48×48 crops per hole → P(empty / covered / plugged) (`sherlok/vision.py: HoleClassifier`).
+  - Trained on our own camera's frames. **Labels come from the schema of the built circuit**: schema pins = plugged; changed-but-not-pin = covered; unchanged = empty (`train/make_dataset.py`).
+  - Schema labels are the true holes on the board plane, so the model learns perspective/parallax offsets of raised wires. A fixed-camera dataset is required.
+- **Grouping:** diff vs `ref/empty.png` (Lab, brightness-normalized) → blobs. Covered/plugged holes are assigned to the nearest blob (≤ 1.5 pitch). Ends = plugged holes (model) or, without a model, farthest changed holes along the blob axis (fallback; weak with raised wires).
+- **Check:** compare by node, not hole (`sherlok/check.py`). Exact matches first, then "misplaced" (one end right), then missing / extra / short. Severity = error if part conf ≥ `high_conf` (0.8), else warn (yellow). Debounce: red after 2 s persistent, green after 1 s.
+- Schemas: `.txt` (`ID TYPE PIN PIN` per line) or `.json`.
 
-1. **Fiducials → hole grid (deterministic).** 4 ArUco markers at the breadboard corners → `cv2.findHomography` → `warpPerspective` to a top-down board. Every hole (rows a–j × columns 1–63, plus rails) has a known pixel center. Target ≥ 20 px per hole pitch. A 400-point half-size board doubles that.
-2. **Per-hole occupancy (ML, primary).** Crop ~32×32 px around each hole and classify empty / occupied (+ wire color). Start with a classical baseline: diff against an empty-board reference. Then train a tiny CNN → TFLite int8, running all ~830 crops in one batch. Labels are nearly free (an empty-board photo gives all `empty`).
-3. **Part detector (ML, coarse).** YOLO11n (detect, or pose with 2 keypoints = lead insertion points). Classes: wire, resistor, led, button, capacitor, ic, hand. It says *what* is there and roughly where, never which hole. Train on the warped board image using 150–300 photos from our own mounted Pi camera. When labeling, keypoint = where the bare lead enters the board. Export with `format="tflite", int8=True`.
-4. **Evidence fusion + assignment (code).** For each part end k and hole h:
-   `score(k,h) ∝ P_position(h) × P_occupied(h) × P_color_match(h)`
-   - P_position = Gaussian around the predicted keypoint; measure σ on validation data.
-   - Constraint: each occupied hole holds one lead → global matching with `scipy.optimize.linear_sum_assignment`.
-   - An occupied hole that no part claims means a stray or extra wire.
-   - Average scores over frames, since the board is static.
-5. **Netlist + schema check.** Breadboard rules: per column, a–e = one node and f–j = another; each rail = one node (check for split rails). Wires merge nodes (union-find).
-   - Schema JSON: exact holes (`{"parts":[{"id":"R1","type":"resistor","pins":["a5","a10"]}]}`) or a netlist compared via `networkx.is_isomorphic(..., edge_match=type)`.
-   - First demo milestone: compare occupancy alone against the exact-hole schema.
-6. **Signal.** GPIO LEDs plus an optional on-screen overlay.
+## Known limitations / next ideas
+- The model scores holes independently. A fully occluded lead → low confidence → yellow (intended).
+- Next ideas: aggregate P(plugged) per strip before deciding; use P(covered) to suppress false ends; wire color.
+- The camera must be high and straight down; parallax offset ≈ wire height × off-center distance / camera height.
 
-## Confidence handling (decided)
-- **Aggregate probabilities per electrical node (strip), not per hole.** a5 vs b5 is the same node, so that split doesn't matter.
-- For each end, compute p1 (top node) and p2 (runner-up). Starting thresholds, to tune on real photos:
-  - **High:** p1 > 0.85 and p1 − p2 > 0.5 → accept; compare with the schema.
-  - **Medium/ambiguous:** probability split across 2–3 nodes → if the expected node is among them, "probably OK, keep watching"; if none of them is expected → likely error, alarm after it persists.
-  - **Low/no evidence:** p1 < 0.2 or the end isn't detected (hand, occlusion, unseated lead) → "can't verify". Never a red alarm.
-- Guard against **confidently wrong** readings: require independent clues to agree (position, occupancy, color) plus consistency over time, and check calibration on a validation set.
-- Lights: **green** = high confidence and matches; **red** = high-confidence mismatch, or ambiguous with every candidate wrong, persisting about 2 s; **yellow** = can't verify (e.g. a `hand` is detected).
-
-## Pipeline
-Camera Module 3 → QnxCamera (full-res RGB) → ArUco warp → occupancy classifier + YOLO part detector (tflite-runtime) → evidence fusion / assignment → netlist → schema compare → GPIO
-
-## Order of work
-1. Flash QNX 8.0.5. Camera smoke test (codelab `demo_capture_faces.py`). `apk add` tflite-runtime + opencv. Blink an LED.
-2. Build the mount, print ArUco markers, write the warp + hole grid. Measure px per hole.
-3. Occupancy (classical baseline → tiny CNN). Exact-hole schema check = first demo.
-4. YOLO parts + fusion/assignment + netlist check.
-5. Tune thresholds, rehearse the demo.
-
-## References
-- github.com/qnx/codelabs: `mobilenet-tflite-qnx`, `mediapipe-camera-python` (camera helper), `mediapipe-camera-sample`
-- github.com/qnx-ports/aports (extra/)
-- QNX Raspberry Pi image docs: https://www.qnx.com/developers/docs/qnxeverywhere/
-- GPIO + Python on QNX: https://www.qnx.com/developers/docs/qnxeverywhere/com.qnx.doc.interfacing/topic/rpi/rpi_GPIO_python_qnx.html
+## Workflow
+`collect.py` (Pi, guided capture into `captures/<schema>/`) → laptop `train/train_all.py` → `models/holes.tflite` → `main.py --model ...`. Test without hardware: `tools/fake_board.py` (flat synthetic wires only).

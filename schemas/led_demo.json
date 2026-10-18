@@ -1,0 +1,9 @@
+{
+  "name": "LED + resistor demo",
+  "parts": [
+    {"id": "W1", "type": "wire",     "pins": ["tp3", "a5"]},
+    {"id": "R1", "type": "resistor", "pins": ["c5", "c9"]},
+    {"id": "D1", "type": "led",      "pins": ["e9", "e11"]},
+    {"id": "W2", "type": "wire",     "pins": ["a11", "tn8"]}
+  ]
+}

@@ -1,0 +1,6 @@
+# Demo shape in the middle of the board (columns 28-36)
+# tp24 = 5th group of 5 (from the column-1 end), 4th hole; tn31 = 7th group, 1st hole
+W1   wire      tp24  a28
+R1   resistor  c28   c32
+R2   resistor  d32   d36
+W2   wire      a36   tn31

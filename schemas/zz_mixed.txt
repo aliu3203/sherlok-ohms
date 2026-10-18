@@ -1,0 +1,7 @@
+# Mixed: crosses the center channel, uses top and bottom rails. Sorted last = held out for testing.
+# tn33 = 7th group of 5 (from the column-1 end), 3rd hole; bp40 = 8th group, 5th hole
+W1   wire      tn33  a40
+R1   resistor  b40   b44
+W2   wire      e44   f44
+R2   resistor  h44   h48
+W3   wire      j48   bp40

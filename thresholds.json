@@ -1,0 +1,13 @@
+{
+  "vision": {
+    "px_thresh": 18.0,
+    "hole_thresh": 14.0,
+    "l_weight": 0.5,
+    "min_area_pitch2": 0.6,
+    "obstructed_frac": 0.25,
+    "hole_radius": 0.25,
+    "assign_pitch": 1.5
+  },
+  "high_conf": 0.8,
+  "pins": {"green": 17, "yellow": 27, "red": 22}
+}

@@ -21,17 +21,17 @@ def test_terminal_geometry(spec):
 
 def test_rail_groups_skip_one_hole():
     holes = hole_positions_mm(FULL_830)
-    x = lambda i: holes[f'top_plus_{i}'][0]
+    x = lambda i: holes[f'a_plus_{i}'][0]
     assert x(2) - x(1) == pytest.approx(2.54)
     assert x(6) - x(5) == pytest.approx(2 * 2.54)
     assert x(50) - x(1) == pytest.approx(58 * 2.54)
 
 
 def test_nodes():
-    assert node_of(FULL_830, 'a5') == node_of(FULL_830, 'e5') == 'left:5'
-    assert node_of(FULL_830, 'f5') == node_of(FULL_830, 'j5') == 'right:5'
-    assert node_of(FULL_830, 'top_plus_1') == node_of(FULL_830, 'top_plus_50') == 'rail:top_plus'
+    assert node_of(FULL_830, 'a5') == node_of(FULL_830, 'e5') == 'ae:5'
+    assert node_of(FULL_830, 'f5') == node_of(FULL_830, 'j5') == 'fj:5'
+    assert node_of(FULL_830, 'a_plus_1') == node_of(FULL_830, 'a_plus_50') == 'rail:a_plus'
     with pytest.raises(ValueError):
         node_of(HALF_400, 'a31')
     with pytest.raises(ValueError):
-        node_of(FULL_830, 'top_plus_51')
+        node_of(FULL_830, 'a_plus_51')
