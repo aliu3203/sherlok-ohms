@@ -86,6 +86,15 @@ python3 main.py --source qnx --schema schemas/led_demo.txt --model models/holes.
 - Every 5 frames it writes `debug/latest.png` (scp it to look).
 - Hands (optional): `sudo apk add mediapipe`, download the model (URL in `sherlok/hands.py`), add `--hands models/hand_landmarker.task`.
 
+**Web frontend (instead of the command above):**
+```
+python3 web/server.py          # on the Pi, from the repo root; stdlib only
+```
+- Open `http://<pi-ip>:8000`, or open `web/index.html` on the laptop and enter the Pi's address.
+- Upload a `.txt`/`.json` schema (saved to `schemas/uploads/`) or pick one already on the Pi, then **Start check**. The console streams `main.py`'s output. The pill shows the LED state.
+- Starting a new check stops the running one. **Stop** sends Ctrl-C, so the LEDs turn off.
+- It runs `main.py --source qnx --model models/holes.tflite` by default. Any extra args go to `main.py`, e.g. `python3 web/server.py --port 9000 --hands models/hand_landmarker.task`.
+
 ## Testing without hardware
 ```
 python3 tools/fake_board.py --schema schemas/led_demo.txt --out fake
@@ -106,6 +115,7 @@ python3 main.py --source fake/built.png --empty fake/empty.png --board fake/boar
 |---|---|
 | `collect.py` | Guided data collection on the Pi |
 | `main.py` | Live check |
+| `web/server.py`, `web/index.html` | Web frontend: upload schema, start/stop `main.py`, stream its logs |
 | `capture.py` | Raw frame grabber |
 | `sherlok/board.py` | Grid / homography |
 | `sherlok/vision.py` | Change detection, hole model, grouping |

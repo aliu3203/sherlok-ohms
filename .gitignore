@@ -4,3 +4,4 @@ fake/
 captures/
 *.npz
 cam.tgz
+schemas/uploads/
